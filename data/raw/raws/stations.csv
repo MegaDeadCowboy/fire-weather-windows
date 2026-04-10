@@ -1,0 +1,26 @@
+# PNW RAWS Station Registry
+# Used by ingest scripts when API metadata is unavailable or for filtering
+# Format: station_id, name, state, lat, lon, elevation_ft, network
+#
+# Sources: USFS Fire Weather / Western Regional Climate Center
+# Priority stations selected for prescribed fire planning relevance:
+#   - Geographic spread across WA and OR
+#   - Elevation diversity (coast, valley, mid-elevation, high-elevation)
+#   - Long-term data availability (10+ years)
+
+station_id,name,state,lat,lon,elevation_ft,network
+TT246,ENTIAT,WA,47.733,-120.243,2825,RAWS
+DRYW1,DRY CREEK,WA,47.727,-120.540,3661,RAWS
+CMFW1,CAMP 4,WA,48.025,-120.241,3156,RAWS
+VPFW1,VIEWPOINT,WA,47.855,-120.890,3695,RAWS
+ANEW1,AENEAS,WA,48.743,-119.622,5185,RAWS
+GRFW1,GRAYBACK,WA,45.992,-121.083,3800,RAWS
+PEFW1,PEOH POINT,WA,47.152,-120.947,4020,RAWS
+MILW1,MILL CREEK,WA,46.263,-120.862,2820,RAWS
+HIBW1,HIGHBRIDGE,WA,46.081,-120.544,2106,RAWS
+KOSW1,KOSMOS,WA,46.524,-122.190,2100,RAWS
+LBFO3,LAVA BUTTE,OR,43.925,-121.343,4650,RAWS
+WSRO3,WARM SPRINGS BASE,OR,44.780,-121.250,1563,RAWS
+CGFO3,COLGATE,OR,44.317,-121.607,3231,RAWS
+TPEO3,TEPEE DRAW,OR,43.835,-121.083,4735,RAWS
+EVFO3,EVANS CREEK,OR,42.598,-123.105,3257,RAWS

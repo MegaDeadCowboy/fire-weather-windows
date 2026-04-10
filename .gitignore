@@ -1,0 +1,45 @@
+# Virtual environment
+firenv/
+.venv/
+env/
+
+# Data files — raw and processed data stays local, not in repo
+data/raw/raws/*.json
+data/raw/ndfd/*.grb2
+data/raw/ndfd/*.xml
+data/processed/raws/*.csv
+data/processed/ndfd/*.csv
+data/processed/ndfd/*.png
+data/processed/raws/*.png
+
+# Keep the directory structure and station registry
+!data/raw/raws/stations.csv
+!data/raw/raws/.gitkeep
+!data/raw/ndfd/.gitkeep
+!data/processed/raws/.gitkeep
+!data/processed/ndfd/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment / secrets
+.env
+*.env
+secrets.py
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/

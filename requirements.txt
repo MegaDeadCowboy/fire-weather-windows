@@ -1,0 +1,36 @@
+# fire-weather-windows — Python dependencies
+# Install: pip install -r requirements.txt
+#
+# Note on cfgrib/eccodes: GRIB2 parsing requires the eccodes C library.
+# Easiest install path: conda install -c conda-forge cfgrib eccodes
+# For pip-only: pip install cfgrib  (eccodes binaries bundled on most platforms)
+
+# ── Core data stack ────────────────────────────────────────────────────────
+requests>=2.31.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# ── Geospatial ─────────────────────────────────────────────────────────────
+geopandas>=0.13.0
+shapely>=2.0.0
+
+# ── GRIB2 / gridded data ───────────────────────────────────────────────────
+cfgrib>=0.9.10
+xarray>=2023.1.0
+eccodes>=1.6.0        # Python bindings (C library also needed)
+
+# ── Interpolation ─────────────────────────────────────────────────────────
+scipy>=1.11.0
+scikit-learn>=1.3.0   # for kriging experiments (stretch goal)
+
+# ── Visualization ─────────────────────────────────────────────────────────
+matplotlib>=3.7.0
+plotly>=5.15.0
+folium>=0.14.0
+
+# ── Dashboard ─────────────────────────────────────────────────────────────
+streamlit>=1.25.0
+
+# ── Dev / notebooks ────────────────────────────────────────────────────────
+jupyter>=1.0.0
+ipykernel>=6.0.0
