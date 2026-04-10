@@ -5,7 +5,10 @@ Run from project root: python3 debug_api.py
 import requests, json
 from datetime import datetime, timedelta
 
-TOKEN = 'accc7bd46f1e4e98aebe794a4ab64d5c'
+from dotenv import load_dotenv
+import os
+load_dotenv()
+TOKEN = os.getenv('SYNOPTIC_TOKEN')
 
 end_dt = datetime(2026, 4, 9)
 start_dt = end_dt - timedelta(days=30)

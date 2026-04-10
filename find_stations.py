@@ -4,7 +4,10 @@ Run: python3 find_stations.py
 """
 import requests, json
 
-TOKEN = 'accc7bd46f1e4e98aebe794a4ab64d5c'
+from dotenv import load_dotenv
+import os
+load_dotenv()
+TOKEN = os.getenv('SYNOPTIC_TOKEN')
 
 # Search for RAWS stations in WA and OR by bounding box
 params = {

@@ -250,8 +250,12 @@ def run_ingest(
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    import os
+    load_dotenv()
+
     parser = argparse.ArgumentParser(description="Ingest RAWS data via Synoptic API")
-    parser.add_argument("--token", default="demotoken",
+    parser.add_argument("--token", default=os.getenv('SYNOPTIC_TOKEN', 'demotoken'),
                         help="Synoptic API token (free at synopticdata.com)")
     parser.add_argument("--states", nargs="+", default=["WA", "OR"],
                         help="States to pull (e.g. WA OR)")
