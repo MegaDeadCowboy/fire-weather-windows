@@ -42,4 +42,5 @@ secrets.py
 Thumbs.db
 
 # VS Code
-.vscode/
+.vscode/data/raw/ndfd/*.xml
+data/processed/ndfd/forecast_parsed_*.csv
