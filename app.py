@@ -271,13 +271,13 @@ def load_stations():
     if p.exists():
         try:
             df = pd.read_csv(p)
-            # Validate it has the columns we need
             required = {"station_id", "station_name", "state", "lat", "lon"}
             if required.issubset(df.columns):
                 return df
         except Exception:
             pass
     return DEFAULT_STATIONS.copy()
+
 
 def load_all():
     return {
@@ -1035,6 +1035,397 @@ def render_climo_tab(data, filtered_stations):
 
 
 # ─────────────────────────────────────────────
+# TAB 5 — BRIEFING
+# ─────────────────────────────────────────────
+def render_briefing_tab(data, selected_station, filtered_stations):
+    """Coordinator-facing plain-English situation report."""
+
+    forecast_df = data["forecast"]
+    daily_df    = data["daily"]
+    climo_df    = data["climo"]
+    annual_df   = data["annual"]
+    stations_df = data["stations"]
+
+    station_meta = stations_df[stations_df["station_id"] == selected_station]
+    sname = station_meta["station_name"].values[0] if len(station_meta) > 0 else selected_station
+    state = station_meta["state"].values[0] if len(station_meta) > 0 else ""
+    regime = REGIME_MAP.get(selected_station, "unknown")
+
+    from datetime import date
+    today_str = date.today().strftime("%B %d, %Y")
+
+    # ── Page header
+    st.markdown(f"""
+    <div style="margin-bottom:24px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:#E8A24A">
+        Situation Briefing
+      </div>
+      <div style="font-size:12px;color:#4A6050;margin-top:2px;font-family:monospace">
+        Generated {today_str} · Station: {selected_station} ({sname}, {state})
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════
+    # SECTION 1 — WHAT IS THIS TOOL
+    # ══════════════════════════════════════════
+    st.markdown('<div class="section-header">About This Tool</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-size:13px;color:#C8D8C8;line-height:1.75;max-width:860px">
+      <p>This dashboard identifies viable prescribed burn windows across 15 RAWS weather stations in Washington
+      and Oregon. A <b style="color:#E8A24A">burn window</b> is a period when temperature, relative humidity,
+      and wind speed all fall within USFS-standard thresholds simultaneously — conditions under which a
+      prescribed fire can be safely ignited and controlled.</p>
+      <p>The tool draws on two data sources: roughly one year of hourly historical observations from each station
+      (used to build climatological baselines), and a 7-day NOAA NDFD weather forecast (used to flag upcoming
+      candidate windows). Use the sidebar to switch between stations and filter by state or constraint regime.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════
+    # SECTION 2 — HOW TO READ EACH TAB
+    # ══════════════════════════════════════════
+    st.markdown('<div class="section-header">How to Read Each Panel</div>', unsafe_allow_html=True)
+
+    panels = [
+        (
+            "📍 Station Map",
+            "Each dot represents a RAWS weather station. The color indicates the best burn window quality "
+            "forecast in the next 7 days: dark green means a full window (6+ viable hours) is expected, "
+            "amber means marginal conditions, dark red means no window is forecast. Click any station "
+            "marker for its name and constraint regime. The table to the right summarizes viable-day "
+            "percentage from historical data and each station's typical peak burn season."
+        ),
+        (
+            "📅 7-Day Forecast",
+            "The bar chart shows how many hours per day are forecast to meet all three burn thresholds "
+            "(RH 25–55%, wind 5–15 mph, temp < 90°F). Taller green bars are better. The triangles above "
+            "bars are anomaly markers: ▲ means this day has more viable hours than is typical for this "
+            "month historically, ▼ means fewer. The heatmap below shows the same information for all 15 "
+            "stations at once — useful for identifying which stations have the best windows on a given day "
+            "if you have flexibility on burn location."
+        ),
+        (
+            "📊 Historical Record",
+            "The monthly bar chart shows what percentage of days in each month have historically had at "
+            "least one viable burn hour at this station. Higher bars = more reliable burn months. The "
+            "stacked bar chart below it breaks down what is causing failures each month — whether hours "
+            "are lost to RH being too wet, wind being too calm, wind being too strong, and so on. This "
+            "helps you understand not just when windows open, but why they close."
+        ),
+        (
+            "🌲 Climatology",
+            "The network heatmap shows viable-day percentage for every station across every month — "
+            "darker green cells are the best station-month combinations across the network. Stations are "
+            "grouped by constraint regime (RH-constrained vs. wind-constrained). Below the heatmap, "
+            "each regime is summarized separately with per-station annual viable-day counts."
+        ),
+    ]
+
+    for title, explanation in panels:
+        st.markdown(f"""
+        <div class="metric-card" style="margin-bottom:12px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;
+                      color:#E8A24A;margin-bottom:8px">{title}</div>
+          <div style="font-size:13px;color:#C8D8C8;line-height:1.7">{explanation}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════
+    # SECTION 3 — THRESHOLDS EXPLAINED
+    # ══════════════════════════════════════════
+    st.markdown('<div class="section-header">Burn Window Thresholds — What They Mean and Why</div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="font-size:13px;color:#C8D8C8;line-height:1.75;max-width:860px;margin-bottom:16px">
+      The three thresholds used throughout this tool come from USFS fire weather planning guides and reflect
+      the physical conditions that make prescribed fire both effective and controllable.
+    </div>
+    """, unsafe_allow_html=True)
+
+    threshold_explanations = [
+        (
+            "Relative Humidity — 25% to 55%",
+            "RH is the primary indicator of fine fuel moisture — how wet or dry the grasses, duff, and "
+            "small woody material are that carry the fire. Below 25%, fuels are critically dry: the fire "
+            "may spread faster and more intensely than crews can manage. Above 55%, fuels are too moist "
+            "to carry a consistent fire, and ignition and spread become unreliable. The 25–55% band is "
+            "where fire behavior is predictable and manageable."
+        ),
+        (
+            "Wind Speed — 5 to 15 mph",
+            "Wind has two roles in prescribed fire. On the lower end, a minimum of 5 mph is required for "
+            "smoke dispersal — without adequate wind, smoke from the burn accumulates at ground level, "
+            "creating air quality and visibility hazards for crews and nearby roads. On the upper end, "
+            "winds above 15 mph increase spotting potential (embers lofted across containment lines) and "
+            "can cause rapid, unpredictable fire runs. The 5–15 mph range keeps smoke moving while "
+            "maintaining control."
+        ),
+        (
+            "Temperature — Below 90°F",
+            "High temperatures accelerate fuel drying and increase fire intensity. The 90°F ceiling is "
+            "a conservative upper bound for safe ignition conditions. In the Pacific Northwest, this "
+            "threshold is rarely reached — the data across all 15 stations shows temperature almost "
+            "never drives window failures. RH and wind are the operative constraints in this region."
+        ),
+        (
+            "Window Quality Tiers",
+            "A single hour meeting all three thresholds is necessary but rarely sufficient for a burn "
+            "operation. Full windows (6+ viable hours) allow time for full ignition sequences, adequate "
+            "holding periods, and mop-up. Partial windows (3–5 hours) may support smaller units or "
+            "early-morning burns. Marginal windows (1–2 hours) are noted but rarely operationally "
+            "useful — conditions may shift before a crew can safely complete ignition."
+        ),
+    ]
+
+    col1, col2 = st.columns(2)
+    for i, (title, body) in enumerate(threshold_explanations):
+        col = col1 if i % 2 == 0 else col2
+        with col:
+            st.markdown(f"""
+            <div class="metric-card" style="margin-bottom:12px;min-height:160px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+                          color:#E8A24A;margin-bottom:8px">{title}</div>
+              <div style="font-size:12px;color:#C8D8C8;line-height:1.7">{body}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════
+    # SECTION 4 — SELECTED STATION BRIEFING
+    # ══════════════════════════════════════════
+    st.markdown(f'<div class="section-header">Station Briefing — {selected_station} ({sname})</div>', unsafe_allow_html=True)
+
+    # Regime explanation
+    if regime == "RH-constrained":
+        regime_text = (
+            f"{selected_station} is an <b style='color:#7FD99A'>RH-constrained</b> station. "
+            "Relative humidity is the primary limiting factor here — windows close most often because "
+            "conditions are too wet (RH above 55%), not because wind is insufficient. This station "
+            "tends to have higher overall viability than wind-constrained stations, and its windows "
+            "are most reliably available during drier periods — typically late spring through early fall."
+        )
+    else:
+        regime_text = (
+            f"{selected_station} is a <b style='color:#E8A24A'>wind-constrained</b> station. "
+            "Wind speed is the primary limiting factor here — the 5 mph smoke dispersal floor is "
+            "frequently not met. This is common in sheltered valley or basin locations where terrain "
+            "suppresses ambient wind. Viable windows at this station are less frequent overall, which "
+            "means any forecast window is operationally significant and worth tracking closely."
+        )
+
+    st.markdown(f"""
+    <div class="metric-card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:#C8D8C8;line-height:1.75">{regime_text}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Annual stats prose
+    if annual_df is not None and selected_station in annual_df["station_id"].values:
+        ann = annual_df[annual_df["station_id"] == selected_station].iloc[0]
+        viable_col = "mean_viable_days" if "mean_viable_days" in ann.index else "viable_days_per_year"
+        viable_days = ann.get(viable_col)
+        peak_season = ann.get("peak_season", None)
+        limiting    = str(ann.get("limiting_factor", "")).replace("_", " ")
+        full_days   = ann.get("full_window_days")
+
+        parts = []
+        if viable_days is not None and not pd.isna(viable_days):
+            parts.append(
+                f"Over the past year, <b style='color:#E8A24A'>{viable_days:.0f} days</b> at this station "
+                f"had at least one viable burn hour."
+            )
+        if full_days is not None and not pd.isna(full_days):
+            parts.append(
+                f"Of those, <b style='color:#7FD99A'>{full_days:.0f} days</b> had a full window of 6 or more hours — "
+                "the tier most likely to support a complete burn operation."
+            )
+        if peak_season:
+            parts.append(
+                f"The historical peak burn season at this station is <b style='color:#E8A24A'>{peak_season}</b>, "
+                "when the combination of RH, wind, and temperature most reliably falls within thresholds."
+            )
+        if limiting:
+            parts.append(
+                f"The primary limiting factor is <b style='color:#E8A24A'>{limiting}</b> — "
+                "the variable most frequently responsible for hours falling outside the burn window."
+            )
+
+        if parts:
+            st.markdown(f"""
+            <div class="metric-card" style="margin-bottom:16px">
+              <div style="font-size:13px;color:#C8D8C8;line-height:1.85">
+                {"<br>".join(parts)}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Forecast prose for selected station
+    if forecast_df is not None:
+        sub = forecast_df[forecast_df["station_id"] == selected_station].copy()
+        if not sub.empty:
+            sub = sub.sort_values("forecast_date")
+            hrs_col = "viable_hours" if "viable_hours" in sub.columns else "window_hours"
+
+            best_row   = sub.loc[sub[hrs_col].idxmax()] if hrs_col in sub.columns else None
+            viable_ct  = (sub["window_quality"] != "no_window").sum()
+            full_ct    = (sub["window_quality"] == "full").sum()
+            above_ct   = (sub.get("anomaly_class", pd.Series(dtype=str)) == "above_normal").sum() if "anomaly_class" in sub.columns else 0
+            below_ct   = (sub.get("anomaly_class", pd.Series(dtype=str)) == "below_normal").sum() if "anomaly_class" in sub.columns else 0
+
+            forecast_parts = []
+
+            if viable_ct == 0:
+                forecast_parts.append(
+                    "The 7-day forecast shows <b style='color:#D4622A'>no viable burn windows</b> at this station. "
+                    "All forecast days are expected to fail at least one threshold condition."
+                )
+            else:
+                forecast_parts.append(
+                    f"The 7-day forecast shows viable burn windows on <b style='color:#E8A24A'>{viable_ct} of 7 days</b> "
+                    f"at this station, including <b style='color:#7FD99A'>{full_ct} full-window day{'s' if full_ct != 1 else ''}</b> "
+                    f"with 6 or more viable hours."
+                )
+
+            if best_row is not None and hrs_col in sub.columns:
+                best_hrs  = best_row[hrs_col]
+                best_date = pd.Timestamp(best_row["forecast_date"]).strftime("%A, %B %d")
+                if best_hrs > 0:
+                    forecast_parts.append(
+                        f"The best single-day window is forecast for <b style='color:#E8A24A'>{best_date}</b>, "
+                        f"with approximately <b style='color:#7FD99A'>{best_hrs:.0f} viable hours</b>."
+                    )
+
+            if above_ct > 0:
+                forecast_parts.append(
+                    f"{above_ct} forecast day{'s are' if above_ct > 1 else ' is'} classified as "
+                    f"<b style='color:#7FD99A'>above-normal</b> relative to the April climatological baseline — "
+                    "meaning conditions are better than historically typical for this time of year."
+                )
+            if below_ct > 0:
+                forecast_parts.append(
+                    f"{below_ct} forecast day{'s are' if below_ct > 1 else ' is'} classified as "
+                    f"<b style='color:#D4622A'>below-normal</b> — conditions are worse than the historical average "
+                    "for April at this station."
+                )
+
+            st.markdown(f"""
+            <div class="metric-card">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4A6050;
+                          margin-bottom:8px;letter-spacing:0.08em">7-DAY FORECAST SUMMARY</div>
+              <div style="font-size:13px;color:#C8D8C8;line-height:1.85">
+                {"<br><br>".join(forecast_parts)}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════
+    # SECTION 5 — NETWORK CONTEXT
+    # ══════════════════════════════════════════
+    st.markdown('<div class="section-header">Network Context — Key Findings Across All Stations</div>', unsafe_allow_html=True)
+
+    findings = [
+        (
+            "Two Constraint Regimes",
+            "The 15 stations split cleanly into two groups. Seven stations (ANEW1, DRYW1, GRFW1, HIBW1, "
+            "KOSW1, LBFO3, PEFW1) are primarily limited by RH being too wet — humidity is the binding "
+            "constraint, and wind dispersal is usually met when RH cooperates. The other eight stations "
+            "(CGFO3, CMFW1, EVFO3, MILW1, TPEO3, TT246, VPFW1, WSRO3) are primarily limited by wind "
+            "being too calm — the 5 mph smoke dispersal floor is frequently not met, often due to terrain "
+            "sheltering. Understanding which regime a station falls into helps set expectations: "
+            "RH-constrained stations benefit most from dry-spell forecasts; wind-constrained stations "
+            "need synoptic wind events to open windows."
+        ),
+        (
+            "Temperature Is Not the Limiting Factor in the PNW",
+            "Across all 15 stations and one full year of data, temperature (exceeding 90°F) accounts for "
+            "a negligible share of window failures — the highest recorded was 376 temperature-fail hours "
+            "at WSRO3 over the full year. In practice, PNW prescribed fire programs are not temperature-"
+            "limited; they are moisture- and smoke-dispersal-limited. This means the 90°F ceiling in the "
+            "USFS threshold criteria, while appropriate nationally, rarely affects burn planning in this "
+            "region. The dashboard retains it for completeness and consistency with standard criteria."
+        ),
+        (
+            "LBFO3 (Lava Butte, OR) — Best Year-Round Station",
+            "Lava Butte has the most even seasonal distribution of any station in the network — viable "
+            "windows occur in every month, including winter. Its high-elevation exposure means it "
+            "regularly meets the wind dispersal threshold, and its semi-arid climate keeps RH in range "
+            "more consistently than west-side stations. For planning purposes, it offers the most "
+            "scheduling flexibility of any station in the network."
+        ),
+        (
+            "EVFO3 (Evans Creek, OR) — Operationally Non-Viable Under Standard Thresholds",
+            "Evans Creek averages approximately 5 viable days per year — the lowest in the network. "
+            "The station logs over 8,600 calm-hour failures annually, driven by its valley location and "
+            "persistent low-wind conditions. Under the standard 5 mph smoke dispersal floor, this station "
+            "rarely qualifies for burn operations. Coordinators planning burns in the Evans Creek drainage "
+            "may need to work with modified threshold criteria or wait for infrequent synoptic wind events."
+        ),
+    ]
+
+    for title, body in findings:
+        st.markdown(f"""
+        <div class="metric-card" style="margin-bottom:12px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+                      color:#E8A24A;margin-bottom:8px">{title}</div>
+          <div style="font-size:13px;color:#C8D8C8;line-height:1.75">{body}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════
+    # SECTION 6 — DATA NOTES
+    # ══════════════════════════════════════════
+    st.markdown('<div class="section-header">Data Notes and Limitations</div>', unsafe_allow_html=True)
+
+    notes = [
+        ("RAWS Observation Period",
+         "Historical data covers approximately April 2025 through April 2026 — one year of hourly "
+         "observations. Climatological baselines derived from a single year should be interpreted "
+         "with caution; multi-year averages would produce more stable seasonal patterns. The current "
+         "baselines are sufficient for relative comparisons across stations but may not capture "
+         "interannual variability."),
+        ("NDFD Forecast Temperature",
+         "NOAA NDFD does not serve temperature forecasts for the PNW gridpoint product used here. "
+         "A fill value of 50°F is applied to all forecast hours, which passes the < 90°F threshold. "
+         "This is consistent with PNW climatology (temperature rarely constrains windows) and is "
+         "documented as a design decision. Forecast window assessments are effectively based on "
+         "RH and wind only."),
+        ("Forecast Anomaly Classification",
+         "Anomaly labels (above-normal / near-normal / below-normal) compare forecast viable hours "
+         "against the same-month climatological mean. The threshold is ±1.5 hours from the monthly "
+         "mean — days within that band are classified as near-normal. This is a relative measure; "
+         "a day labeled above-normal at a wind-constrained station may still have fewer viable hours "
+         "than a near-normal day at an RH-constrained station."),
+        ("Station Coverage",
+         "The 15 stations represent a sample of available PNW RAWS sites, chosen to span the "
+         "Washington and Oregon Cascades and eastern slopes. Gaps exist — particularly in the "
+         "Olympic Peninsula and far northeast Washington. Coordinators planning burns outside "
+         "the coverage area should treat the nearest station as an approximate reference only."),
+    ]
+
+    col1, col2 = st.columns(2)
+    for i, (title, body) in enumerate(notes):
+        col = col1 if i % 2 == 0 else col2
+        with col:
+            st.markdown(f"""
+            <div class="metric-card" style="margin-bottom:12px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;
+                          color:#7A9180;margin-bottom:6px;letter-spacing:0.06em">{title.upper()}</div>
+              <div style="font-size:12px;color:#8A9BA8;line-height:1.7">{body}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 def main():
@@ -1073,7 +1464,8 @@ def main():
         """, unsafe_allow_html=True)
 
     # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📋  Briefing",
         "📍  Station Map",
         "📅  7-Day Forecast",
         "📊  Historical Record",
@@ -1081,15 +1473,18 @@ def main():
     ])
 
     with tab1:
-        render_map_tab(data, filtered_stations)
+        render_briefing_tab(data, selected_station, filtered_stations)
 
     with tab2:
-        render_forecast_tab(data, selected_station)
+        render_map_tab(data, filtered_stations)
 
     with tab3:
-        render_calendar_tab(data, selected_station)
+        render_forecast_tab(data, selected_station)
 
     with tab4:
+        render_calendar_tab(data, selected_station)
+
+    with tab5:
         render_climo_tab(data, filtered_stations)
 
 
