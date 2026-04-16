@@ -17,19 +17,19 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore")
 
-# ─────────────────────────────────────────────
+# 
 # PAGE CONFIG
-# ─────────────────────────────────────────────
+# 
 st.set_page_config(
     page_title="Fire Weather Windows | PNW",
-    page_icon="🔥",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─────────────────────────────────────────────
+# 
 # THEME / STYLE
-# ─────────────────────────────────────────────
+# 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
@@ -173,9 +173,9 @@ button[data-baseweb="tab"][aria-selected="true"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
+# 
 # CONSTANTS
-# ─────────────────────────────────────────────
+# 
 TIER_COLORS = {
     "full":     "#2D6A3F",
     "partial":  "#5A7A1A",
@@ -209,9 +209,9 @@ REGIME_MAP = {
 
 THRESHOLDS = {"rh_min": 25, "rh_max": 55, "wind_min": 5, "wind_max": 15, "temp_max": 90}
 
-# ─────────────────────────────────────────────
+# 
 # DATA LOADING
-# ─────────────────────────────────────────────
+# 
 DEFAULT_STATIONS = pd.DataFrame([
     {"station_id": "TT246", "station_name": "Entiat",       "state": "WA", "lat": 47.733, "lon": -120.243},
     {"station_id": "DRYW1", "station_name": "Dry Creek",    "state": "WA", "lat": 47.727, "lon": -120.540},
@@ -289,9 +289,9 @@ def load_all():
     }
 
 
-# ─────────────────────────────────────────────
+# 
 # HELPER FUNCTIONS
-# ─────────────────────────────────────────────
+# 
 def tier_color_map(tier):
     return TIER_COLORS.get(tier, "#3A1A1A")
 
@@ -327,13 +327,13 @@ def best_upcoming_tier(forecast_df, station_id):
     return "no_window"
 
 
-# ─────────────────────────────────────────────
+# 
 # SIDEBAR
-# ─────────────────────────────────────────────
+# 
 def render_sidebar(data):
     with st.sidebar:
         st.markdown("""
-        <div class="dash-title">🔥 FireWindow</div>
+        <div class="dash-title"> FireWindow</div>
         <div class="dash-subtitle">PNW Prescribed Burn Planner</div>
         """, unsafe_allow_html=True)
         st.markdown("---")
@@ -384,9 +384,9 @@ def render_sidebar(data):
     return selected_station, filtered_stations
 
 
-# ─────────────────────────────────────────────
+# 
 # TAB 1 — STATION MAP
-# ─────────────────────────────────────────────
+# 
 def render_map_tab(data, filtered_stations):
     st.markdown('<div class="section-header">Network Overview — Upcoming Burn Windows</div>', unsafe_allow_html=True)
 
@@ -458,10 +458,10 @@ def render_map_tab(data, filtered_stations):
         <div style='position:fixed;bottom:20px;left:20px;z-index:1000;background:#162019;
                     border:1px solid #2C3E30;border-radius:6px;padding:12px;font-family:monospace;font-size:11px;color:#EDF2EE'>
           <b style='color:#E8A24A'>Upcoming Window Quality</b><br>
-          <span style='color:#2D6A3F'>●</span> Full (6+ hrs)<br>
-          <span style='color:#5A7A1A'>●</span> Partial (3–5 hrs)<br>
-          <span style='color:#8A5A10'>●</span> Marginal (1–2 hrs)<br>
-          <span style='color:#6A2A2A'>●</span> No Window
+          <span style='color:#2D6A3F'></span> Full (6+ hrs)<br>
+          <span style='color:#5A7A1A'></span> Partial (3–5 hrs)<br>
+          <span style='color:#8A5A10'></span> Marginal (1–2 hrs)<br>
+          <span style='color:#6A2A2A'></span> No Window
         </div>
         """
         m.get_root().html.add_child(folium.Element(legend_html))
@@ -494,15 +494,15 @@ def render_map_tab(data, filtered_stations):
             """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
+# 
 # TAB 2 — FORECAST PANEL
-# ─────────────────────────────────────────────
+# 
 def render_forecast_tab(data, selected_station):
     st.markdown(f'<div class="section-header">7-Day Burn Window Forecast — {selected_station}</div>', unsafe_allow_html=True)
 
     forecast_df = data["forecast"]
     if forecast_df is None:
-        st.warning("⚠ Forecast data not found at `data/processed/ndfd/forecast_summary.csv`. Run `python src/analysis/forecast_windows.py` to generate.")
+        st.warning(" Forecast data not found at `data/processed/ndfd/forecast_summary.csv`. Run `python src/analysis/forecast_windows.py` to generate.")
         return
 
     station_meta = data["stations"]
@@ -516,7 +516,7 @@ def render_forecast_tab(data, selected_station):
 
     sub = sub.sort_values("forecast_date")
 
-    # ── Top KPI row
+    #  Top KPI row
     total_days      = len(sub)
     viable_days     = (sub["window_quality"] != "no_window").sum()
     full_days       = (sub["window_quality"] == "full").sum()
@@ -541,7 +541,7 @@ def render_forecast_tab(data, selected_station):
 
     st.markdown("---")
 
-    # ── Forecast heatmap bar
+    #  Forecast heatmap bar
     col_chart, col_detail = st.columns([2, 1])
 
     with col_chart:
@@ -568,7 +568,7 @@ def render_forecast_tab(data, selected_station):
         # Anomaly markers
         if "anomaly_class" in sub.columns:
             for i, (d, t, anom) in enumerate(zip(dates, hours, sub["anomaly_class"].tolist())):
-                marker = {"above_normal": "▲", "below_normal": "▼", "near_normal": "●"}.get(anom, "")
+                marker = {"above_normal": "", "below_normal": "", "near_normal": ""}.get(anom, "")
                 color  = ANOM_COLORS.get(anom, "#888")
                 if marker:
                     fig.add_annotation(
@@ -601,9 +601,9 @@ def render_forecast_tab(data, selected_station):
             tier = row["window_quality"]
             tier_css = {"full": "full", "partial": "partial", "marginal": "marginal", "no_window": "none"}.get(tier, "none")
             anom = row.get("anomaly_class", "") if "anomaly_class" in sub.columns else ""
-            anom_sym = {"above_normal": '<span class="anom-above">▲ Above</span>',
-                        "below_normal": '<span class="anom-below">▼ Below</span>',
-                        "near_normal":  '<span class="anom-near">● Near</span>'}.get(anom, "")
+            anom_sym = {"above_normal": '<span class="anom-above"> Above</span>',
+                        "below_normal": '<span class="anom-below"> Below</span>',
+                        "near_normal":  '<span class="anom-near"> Near</span>'}.get(anom, "")
             hrs_val = row.get(hrs_col, 0) if hrs_col in sub.columns else 0
             st.markdown(f"""
             <div style="display:flex;justify-content:space-between;align-items:center;
@@ -614,7 +614,7 @@ def render_forecast_tab(data, selected_station):
             </div>
             """, unsafe_allow_html=True)
 
-    # ── Network overview heatmap
+    #  Network overview heatmap
     st.markdown("---")
     st.markdown('<div class="section-header">Network Window Forecast — All Stations</div>', unsafe_allow_html=True)
 
@@ -691,15 +691,15 @@ def render_forecast_tab(data, selected_station):
 
         st.markdown("""
         <div class="info-box">
-          ▲ Above-normal &nbsp;|&nbsp; ● Near-normal &nbsp;|&nbsp; ▼ Below-normal &nbsp; vs. April climatological baseline.
+           Above-normal &nbsp;|&nbsp;  Near-normal &nbsp;|&nbsp;  Below-normal &nbsp; vs. April climatological baseline.
           Temperature threshold (< 90°F) not forecast by NDFD for PNW; 50°F fill used — see README.
         </div>
         """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
+# 
 # TAB 3 — HISTORICAL CALENDAR
-# ─────────────────────────────────────────────
+# 
 def render_calendar_tab(data, selected_station):
     st.markdown(f'<div class="section-header">Historical Burn Window Record — {selected_station}</div>', unsafe_allow_html=True)
 
@@ -708,7 +708,7 @@ def render_calendar_tab(data, selected_station):
     annual_df = data["annual"]
 
     if daily_df is None:
-        st.warning("⚠ Daily window data not found at `data/processed/raws/daily_windows.csv`. Run `src/analysis/burn_windows.py` to generate.")
+        st.warning(" Daily window data not found at `data/processed/raws/daily_windows.csv`. Run `src/analysis/burn_windows.py` to generate.")
         return
 
     station_meta = data["stations"]
@@ -731,7 +731,7 @@ def render_calendar_tab(data, selected_station):
 
     col1, col2 = st.columns([1.5, 1])
 
-    # ── Monthly climatology bar chart
+    #  Monthly climatology bar chart
     with col1:
         if climo_df is not None and selected_station in climo_df["station_id"].values:
             st.markdown('<div class="section-header">Monthly Climatology — Viable Day %</div>', unsafe_allow_html=True)
@@ -787,7 +787,7 @@ def render_calendar_tab(data, selected_station):
                 </div>
                 """, unsafe_allow_html=True)
 
-    # ── Full-window day calendar heatmap (week × day-of-week)
+    #  Full-window day calendar heatmap (week × day-of-week)
     st.markdown("---")
     st.markdown('<div class="section-header">Full-Window Days — Calendar View</div>', unsafe_allow_html=True)
 
@@ -842,7 +842,7 @@ def render_calendar_tab(data, selected_station):
 
         st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False})
 
-    # ── Constraint breakdown
+    #  Constraint breakdown
     if climo_df is not None and selected_station in climo_df["station_id"].values:
         st.markdown("---")
         st.markdown('<div class="section-header">Constraint Breakdown — Limiting Factors</div>', unsafe_allow_html=True)
@@ -891,9 +891,9 @@ def render_calendar_tab(data, selected_station):
             st.plotly_chart(fig4, use_container_width=True, config={"displayModeBar": False})
 
 
-# ─────────────────────────────────────────────
+# 
 # TAB 4 — CLIMATOLOGY EXPLORER
-# ─────────────────────────────────────────────
+# 
 def render_climo_tab(data, filtered_stations):
     st.markdown('<div class="section-header">Network Climatology — Cross-Station Comparison</div>', unsafe_allow_html=True)
 
@@ -901,7 +901,7 @@ def render_climo_tab(data, filtered_stations):
     annual_df = data["annual"]
 
     if climo_df is None:
-        st.warning("⚠ Climatology data not found. Run `src/analysis/climatology.py`.")
+        st.warning(" Climatology data not found. Run `src/analysis/climatology.py`.")
         return
 
     station_ids = filtered_stations["station_id"].tolist()
@@ -1034,9 +1034,9 @@ def render_climo_tab(data, filtered_stations):
         """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
+# 
 # TAB 5 — BRIEFING
-# ─────────────────────────────────────────────
+# 
 def render_briefing_tab(data, selected_station, filtered_stations):
     """Coordinator-facing plain-English situation report."""
 
@@ -1054,7 +1054,7 @@ def render_briefing_tab(data, selected_station, filtered_stations):
     from datetime import date
     today_str = date.today().strftime("%B %d, %Y")
 
-    # ── Page header
+    #  Page header
     st.markdown(f"""
     <div style="margin-bottom:24px">
       <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:#E8A24A">
@@ -1066,9 +1066,9 @@ def render_briefing_tab(data, selected_station, filtered_stations):
     </div>
     """, unsafe_allow_html=True)
 
-    # ══════════════════════════════════════════
+    # 
     # SECTION 1 — WHAT IS THIS TOOL
-    # ══════════════════════════════════════════
+    # 
     st.markdown('<div class="section-header">About This Tool</div>', unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:13px;color:#C8D8C8;line-height:1.75;max-width:860px">
@@ -1084,14 +1084,14 @@ def render_briefing_tab(data, selected_station, filtered_stations):
 
     st.markdown("---")
 
-    # ══════════════════════════════════════════
+    # 
     # SECTION 2 — HOW TO READ EACH TAB
-    # ══════════════════════════════════════════
+    # 
     st.markdown('<div class="section-header">How to Read Each Panel</div>', unsafe_allow_html=True)
 
     panels = [
         (
-            "📍 Station Map",
+            " Station Map",
             "Each dot represents a RAWS weather station. The color indicates the best burn window quality "
             "forecast in the next 7 days: dark green means a full window (6+ viable hours) is expected, "
             "amber means marginal conditions, dark red means no window is forecast. Click any station "
@@ -1099,16 +1099,16 @@ def render_briefing_tab(data, selected_station, filtered_stations):
             "percentage from historical data and each station's typical peak burn season."
         ),
         (
-            "📅 7-Day Forecast",
+            " 7-Day Forecast",
             "The bar chart shows how many hours per day are forecast to meet all three burn thresholds "
             "(RH 25–55%, wind 5–15 mph, temp < 90°F). Taller green bars are better. The triangles above "
-            "bars are anomaly markers: ▲ means this day has more viable hours than is typical for this "
-            "month historically, ▼ means fewer. The heatmap below shows the same information for all 15 "
+            "bars are anomaly markers:  means this day has more viable hours than is typical for this "
+            "month historically,  means fewer. The heatmap below shows the same information for all 15 "
             "stations at once — useful for identifying which stations have the best windows on a given day "
             "if you have flexibility on burn location."
         ),
         (
-            "📊 Historical Record",
+            " Historical Record",
             "The monthly bar chart shows what percentage of days in each month have historically had at "
             "least one viable burn hour at this station. Higher bars = more reliable burn months. The "
             "stacked bar chart below it breaks down what is causing failures each month — whether hours "
@@ -1116,7 +1116,7 @@ def render_briefing_tab(data, selected_station, filtered_stations):
             "helps you understand not just when windows open, but why they close."
         ),
         (
-            "🌲 Climatology",
+            " Climatology",
             "The network heatmap shows viable-day percentage for every station across every month — "
             "darker green cells are the best station-month combinations across the network. Stations are "
             "grouped by constraint regime (RH-constrained vs. wind-constrained). Below the heatmap, "
@@ -1135,9 +1135,9 @@ def render_briefing_tab(data, selected_station, filtered_stations):
 
     st.markdown("---")
 
-    # ══════════════════════════════════════════
+    # 
     # SECTION 3 — THRESHOLDS EXPLAINED
-    # ══════════════════════════════════════════
+    # 
     st.markdown('<div class="section-header">Burn Window Thresholds — What They Mean and Why</div>', unsafe_allow_html=True)
 
     st.markdown("""
@@ -1196,9 +1196,9 @@ def render_briefing_tab(data, selected_station, filtered_stations):
 
     st.markdown("---")
 
-    # ══════════════════════════════════════════
+    # 
     # SECTION 4 — SELECTED STATION BRIEFING
-    # ══════════════════════════════════════════
+    # 
     st.markdown(f'<div class="section-header">Station Briefing — {selected_station} ({sname})</div>', unsafe_allow_html=True)
 
     # Regime explanation
@@ -1326,9 +1326,9 @@ def render_briefing_tab(data, selected_station, filtered_stations):
 
     st.markdown("---")
 
-    # ══════════════════════════════════════════
+    # 
     # SECTION 5 — NETWORK CONTEXT
-    # ══════════════════════════════════════════
+    # 
     st.markdown('<div class="section-header">Network Context — Key Findings Across All Stations</div>', unsafe_allow_html=True)
 
     findings = [
@@ -1381,9 +1381,9 @@ def render_briefing_tab(data, selected_station, filtered_stations):
 
     st.markdown("---")
 
-    # ══════════════════════════════════════════
+    # 
     # SECTION 6 — DATA NOTES
-    # ══════════════════════════════════════════
+    # 
     st.markdown('<div class="section-header">Data Notes and Limitations</div>', unsafe_allow_html=True)
 
     notes = [
@@ -1425,9 +1425,9 @@ def render_briefing_tab(data, selected_station, filtered_stations):
             """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
+# 
 # MAIN
-# ─────────────────────────────────────────────
+# 
 def main():
     data = load_all()
 
@@ -1456,8 +1456,8 @@ def main():
         <div class="metric-card" style="text-align:right">
           <div class="label">Data Status</div>
           <div style="font-size:12px;color:#7A9180;margin-top:4px">
-            {"✓" if has_history  else "✗"} Historical RAWS<br>
-            {"✓" if has_forecast else "✗"} NDFD Forecast<br>
+            {"" if has_history  else ""} Historical RAWS<br>
+            {"" if has_forecast else ""} NDFD Forecast<br>
             {n_stations} stations loaded
           </div>
         </div>
@@ -1465,11 +1465,11 @@ def main():
 
     # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📋  Briefing",
-        "📍  Station Map",
-        "📅  7-Day Forecast",
-        "📊  Historical Record",
-        "🌲  Climatology",
+        "  Briefing",
+        "  Station Map",
+        "  7-Day Forecast",
+        "  Historical Record",
+        "  Climatology",
     ])
 
     with tab1:
