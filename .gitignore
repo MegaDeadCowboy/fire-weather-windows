@@ -44,3 +44,7 @@ Thumbs.db
 # VS Code
 .vscode/data/raw/ndfd/*.xml
 data/processed/ndfd/forecast_parsed_*.csv
+
+# FEMS cache (keep the NE station list)
+data/raw/fems/*
+!data/raw/fems/ne_stations.csv
