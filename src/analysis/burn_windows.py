@@ -139,7 +139,7 @@ def load_processed(path: Path | str = PROCESSED_CSV) -> pd.DataFrame:
     df = df.sort_values(["station_id", "datetime"]).reset_index(drop=True)
 
     # ---- coerce numeric ----
-    for col in ["temp_f", "rh", "wind_mph", "wind_dir"]:
+    for col in ["temp_f", "rh", "wind_mph", "wind_dir", "precip_in"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -179,7 +179,19 @@ def hourly_flags(
     # individual flags — NaN → False (conservatively not a burn window)
     out["rh_ok"]   = out["rh"].between(t["rh_min"],   t["rh_max"],   inclusive="both")
     out["wind_ok"] = out["wind_mph"].between(t["wind_min"], t["wind_max"], inclusive="both")
-    out["temp_ok"] = out["temp_f"] < t["temp_max"]
+    out["temp_ok"] = out["temp_f"].lt(t["temp_max"]) & out["temp_f"].ge(t.get("temp_min", -np.inf))
+
+    # optional rain constraint (region configs that set rain_free_hours): no measurable
+    # precip (>= rain_trace_in) in the trailing window. Missing precip counts as no rain.
+    out["rain_ok"] = True
+    if t.get("rain_free_hours") and "precip_in" in out.columns:
+        out = out.sort_values(["station_id", "datetime"]).reset_index(drop=True)
+        trace = t.get("rain_trace_in", 0.01)
+        wet = (out["precip_in"].fillna(0) >= trace).astype(int)
+        roll = (out.assign(_wet=wet).set_index("datetime")
+                   .groupby("station_id")["_wet"]
+                   .rolling(f"{int(t['rain_free_hours'])}h").sum())
+        out["rain_ok"] = (roll.values == 0)
 
     # fill NaN flags as False
     for col in ["rh_ok", "wind_ok", "temp_ok"]:
@@ -193,7 +205,8 @@ def hourly_flags(
     )
 
     # composite — only flag when all three variables actually have data
-    out["burn_window"] = out["rh_ok"] & out["wind_ok"] & out["temp_ok"] & (out["vars_present"] == 3)
+    out["burn_window"] = (out["rh_ok"] & out["wind_ok"] & out["temp_ok"] & out["rain_ok"]
+                          & (out["vars_present"] == 3))
 
     return out
 
@@ -348,7 +361,7 @@ def _month_to_season(month: int) -> str:
     }.get(month, "unknown")
 
 
-def summarise_flags(hourly: pd.DataFrame) -> pd.DataFrame:
+def summarise_flags(hourly: pd.DataFrame, thresholds: dict | None = None) -> pd.DataFrame:
     """
     Per-station summary of how often each variable is the limiting factor.
 
@@ -358,10 +371,13 @@ def summarise_flags(hourly: pd.DataFrame) -> pd.DataFrame:
 
     Also computes limiting_factor: which single variable most constrains burn windows.
     """
+    t = DEFAULT_THRESHOLDS.copy()
+    if thresholds:
+        t.update(thresholds)
     if "burn_window" not in hourly.columns:
-        hourly = hourly_flags(hourly)
-
-    t = DEFAULT_THRESHOLDS
+        hourly = hourly_flags(hourly, t)
+    if "rain_ok" not in hourly.columns:
+        hourly = hourly.assign(rain_ok=True)
     h = hourly.copy()
     complete = h["vars_present"].eq(3)
 
@@ -370,6 +386,7 @@ def summarise_flags(hourly: pd.DataFrame) -> pd.DataFrame:
     rh_fail   = (~h["rh_ok"]   & complete).groupby(h["station_id"]).sum().rename("rh_fail_hours")
     wind_fail = (~h["wind_ok"] & complete).groupby(h["station_id"]).sum().rename("wind_fail_hours")
     temp_fail = (~h["temp_ok"] & complete).groupby(h["station_id"]).sum().rename("temp_fail_hours")
+    rain_fail = (~h["rain_ok"] & complete).groupby(h["station_id"]).sum().rename("rain_fail_hours")
 
     # wind split: too calm vs too strong
     wind_calm   = (h["wind_mph"].lt(t["wind_min"])  & complete).groupby(h["station_id"]).sum().rename("wind_too_calm_hours")
@@ -380,7 +397,7 @@ def summarise_flags(hourly: pd.DataFrame) -> pd.DataFrame:
     rh_wet  = (h["rh"].gt(t["rh_max"]) & complete).groupby(h["station_id"]).sum().rename("rh_too_wet_hours")
 
     summary = pd.concat(
-        [total, viable, rh_fail, rh_dry, rh_wet, wind_fail, wind_calm, wind_strong, temp_fail],
+        [total, viable, rh_fail, rh_dry, rh_wet, wind_fail, wind_calm, wind_strong, temp_fail, rain_fail],
         axis=1
     ).reset_index()
 
@@ -388,7 +405,8 @@ def summarise_flags(hourly: pd.DataFrame) -> pd.DataFrame:
 
     # dominant limiting factor per station
     def _limiting(row):
-        candidates = {"rh": row["rh_fail_hours"], "wind": row["wind_fail_hours"], "temp": row["temp_fail_hours"]}
+        candidates = {"rh": row["rh_fail_hours"], "wind": row["wind_fail_hours"],
+                      "temp": row["temp_fail_hours"], "rain": row["rain_fail_hours"]}
         top = max(candidates, key=candidates.get)
         if top == "wind":
             calm_pct   = row["wind_too_calm_hours"]   / max(row["wind_fail_hours"], 1)
@@ -397,7 +415,7 @@ def summarise_flags(hourly: pd.DataFrame) -> pd.DataFrame:
         if top == "rh":
             dry_pct = row["rh_too_dry_hours"] / max(row["rh_fail_hours"], 1)
             return "rh_too_dry" if dry_pct >= 0.5 else "rh_too_wet"
-        return "temp"
+        return top
 
     summary["limiting_factor"] = summary.apply(_limiting, axis=1)
     return summary
