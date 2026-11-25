@@ -35,6 +35,22 @@ LBFO3 (Lava Butte, OR) shows the most even seasonal distribution — viable wind
 
 ---
 
+## Northeast region
+
+The same threshold logic, run on six Northeast RAWS stations (NJ, NY, PA, WV, ME, NH) for 2025, with Northeast timber-fuel prescription medians (RH 30–67 %, 20-ft wind 4.5–20 mph, 35–87.5 °F, no rain in 24 h; Fast, Ducey & Weyrick, UNH Cooperative Extension). Part of [northeast-fire-weather](https://github.com/MegaDeadCowboy/northeast-fire-weather), which covers fire occurrence, ignition-day fire danger, and data gaps for the region.
+
+**The binding constraints are the same as in the PNW, failing in the same direction.** The window was open 8.7 % of complete hours. Wind failed 64.2 % of hours, almost all too calm (33,500 h too calm vs. 12 h too strong). RH failed 61.5 %, almost all too humid (30,320 h vs. 1,795 h too dry). Only 708 of 15,507 temperature-failure hours were too hot; the rest fell below the 35 °F floor. Sources: `results/northeast/binding_constraint_region.csv`, `results/northeast/constraint_failures.csv`.
+
+```
+python -m src.ingest.fems_ingest stations            # Northeast RAWS list from USFS FEMS (free, no key)
+python -m src.ingest.fems_ingest pull --stations 280051,463501,300011,360351,172501,270301 --start 2025-01-01 --end 2025-12-31
+python -m src.analysis.run_region --region northeast  # results/northeast/
+```
+
+Region settings live in `src/regions/` (`pnw.py`, `northeast.py`). PNW results are unchanged: the new minimum-temperature and rain checks only apply when a region sets them. Northeast data come from FEMS instead of Synoptic, because Synoptic's historical data now need a paid or `.edu` Open Access account.
+
+---
+
 ## Burn window thresholds
 
 Standard USFS criteria applied throughout:
