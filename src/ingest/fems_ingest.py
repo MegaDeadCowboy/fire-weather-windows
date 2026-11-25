@@ -46,8 +46,8 @@ FLAGMAP = {"temp_f": "Tflag", "rh": "RHflag", "wind_mph": "WSflag",
            "wind_dir": "WAflag", "precip_in": "PCPflag"}
 
 STATION_QUERY = """
-query StationMetaData($stateId: String, $page: Int) {
-  stationMetaData(stateId: $stateId, networkName: "RAWS", page: $page, per_page: 500) {
+query StationMetaData($stateId: String) {
+  stationMetaData(stateId: $stateId, networkName: "RAWS", per_page: 1000) {
     _metadata { page per_page total_count page_count }
     data { station_id station_name state latitude longitude station_status station_type }
   }
@@ -59,28 +59,24 @@ def stations():
     for st in NE_STATES:
         cache = RAW_DIR / f"stations_{st}.json"
         if not cache.exists():
-            pages, page = [], 1
-            while True:
-                r = requests.post(GRAPHQL_URL, json={"query": STATION_QUERY,
-                                  "variables": {"stateId": st, "page": page}}, timeout=60)
-                r.raise_for_status()
-                body = r.json()
-                if body.get("errors"):
-                    raise SystemExit(f"{st}: GraphQL errors: {body['errors'][:2]}")
-                res = body["data"]["stationMetaData"]
-                pages += res["data"]
-                if page >= (res["_metadata"].get("page_count") or 1):
-                    break
-                page += 1
-            if not pages:
-                raise SystemExit(f"{st}: 0 stations returned. Run `probe` to check filter values.")
+            r = requests.post(GRAPHQL_URL, json={"query": STATION_QUERY,
+                              "variables": {"stateId": st}}, timeout=60)
+            r.raise_for_status()
+            body = r.json()
+            if body.get("errors"):
+                raise SystemExit(f"{st}: GraphQL errors: {body['errors'][:2]}")
+            res = body["data"]["stationMetaData"]
+            pages = res["data"]
+            total = res["_metadata"]["total_count"]
+            if len(pages) != total:
+                raise SystemExit(f"{st}: got {len(pages)} of {total} stations; raise per_page")
             cache.write_text(json.dumps(pages))
         frames.append(pd.DataFrame(json.loads(cache.read_text())))
     df = pd.concat(frames, ignore_index=True)
     out = RAW_DIR / "ne_stations.csv"
     df.to_csv(out, index=False)
     print(f"NE RAWS stations: {len(df)} -> {out}")
-    print(df.groupby("state").size().to_string())
+    print(df.groupby("state").size().reindex(NE_STATES, fill_value=0).to_string())
     if "station_status" in df:
         print(df["station_status"].value_counts(dropna=False).to_string())
 
