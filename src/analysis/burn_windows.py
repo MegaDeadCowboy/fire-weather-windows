@@ -386,6 +386,8 @@ def summarise_flags(hourly: pd.DataFrame, thresholds: dict | None = None) -> pd.
     rh_fail   = (~h["rh_ok"]   & complete).groupby(h["station_id"]).sum().rename("rh_fail_hours")
     wind_fail = (~h["wind_ok"] & complete).groupby(h["station_id"]).sum().rename("wind_fail_hours")
     temp_fail = (~h["temp_ok"] & complete).groupby(h["station_id"]).sum().rename("temp_fail_hours")
+    temp_cold = (h["temp_f"].lt(t.get("temp_min", -np.inf)) & complete).groupby(h["station_id"]).sum().rename("temp_too_cold_hours")
+    temp_hot  = (h["temp_f"].ge(t["temp_max"]) & complete).groupby(h["station_id"]).sum().rename("temp_too_hot_hours")
     rain_fail = (~h["rain_ok"] & complete).groupby(h["station_id"]).sum().rename("rain_fail_hours")
 
     # wind split: too calm vs too strong
@@ -397,7 +399,7 @@ def summarise_flags(hourly: pd.DataFrame, thresholds: dict | None = None) -> pd.
     rh_wet  = (h["rh"].gt(t["rh_max"]) & complete).groupby(h["station_id"]).sum().rename("rh_too_wet_hours")
 
     summary = pd.concat(
-        [total, viable, rh_fail, rh_dry, rh_wet, wind_fail, wind_calm, wind_strong, temp_fail, rain_fail],
+        [total, viable, rh_fail, rh_dry, rh_wet, wind_fail, wind_calm, wind_strong, temp_fail, temp_cold, temp_hot, rain_fail],
         axis=1
     ).reset_index()
 
