@@ -151,7 +151,13 @@ def pull(station_ids, start, end):
     qa_df = pd.DataFrame(qa, columns=["variable", "set_nan_qc_flag2"])
     qa_df.to_csv(PROC_DIR / "northeast_qc_drops.csv", index=False)
     print(f"rows: {len(out)} -> {path}")
-    print(out.groupby("station_id")["datetime"].agg(["min", "max", "size"]).to_string())
+    hours = (pd.Timestamp(end) - pd.Timestamp(start)).days * 24 + 24
+    complete = out.dropna(subset=["temp_f", "rh", "wind_mph"])
+    comp = complete.groupby("station_id").size().reindex(station_ids, fill_value=0).to_frame("hours_complete")
+    comp["hours_expected"] = hours
+    comp["pct_complete"] = (comp["hours_complete"] / hours * 100).round(1)
+    comp.to_csv(PROC_DIR / "northeast_completeness.csv")
+    print(comp.sort_values("pct_complete", ascending=False).to_string())
     print(qa_df.to_string(index=False))
 
 
