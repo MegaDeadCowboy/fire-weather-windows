@@ -1,0 +1,7 @@
+station_id,total_hours,burn_window_hours,rh_fail_hours,rh_too_dry_hours,rh_too_wet_hours,wind_fail_hours,wind_too_calm_hours,wind_too_strong_hours,temp_fail_hours,rain_fail_hours,pct_viable,limiting_factor
+172501,8756,601,6720,229,6491,6178,6178,0,3758,57,6.9,rh_too_wet
+270301,8760,76,5195,369,4826,8192,8192,0,3073,3486,0.9,wind_too_calm
+280051,8751,1037,5457,303,5154,5355,5345,10,1808,3122,11.9,rh_too_wet
+300011,8758,923,4926,188,4738,4691,4691,0,2584,3354,10.5,rh_too_wet
+360351,8761,831,5281,198,5083,3646,3646,0,2672,3718,9.5,rh_too_wet
+463501,8760,1081,4536,508,4028,5450,5448,2,1612,3388,12.3,wind_too_calm
