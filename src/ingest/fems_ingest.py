@@ -72,6 +72,8 @@ def stations():
                 if page >= (res["_metadata"].get("page_count") or 1):
                     break
                 page += 1
+            if not pages:
+                raise SystemExit(f"{st}: 0 stations returned. Run `probe` to check filter values.")
             cache.write_text(json.dumps(pages))
         frames.append(pd.DataFrame(json.loads(cache.read_text())))
     df = pd.concat(frames, ignore_index=True)
@@ -81,6 +83,29 @@ def stations():
     print(df.groupby("state").size().to_string())
     if "station_status" in df:
         print(df["station_status"].value_counts(dropna=False).to_string())
+
+
+PROBE_QUERY = """
+query P($stateId: String, $networkName: String) {
+  stationMetaData(stateId: $stateId, networkName: $networkName, per_page: 3) {
+    _metadata { total_count }
+    data { station_id station_name state latitude longitude station_status station_type }
+  }
+}"""
+
+
+def probe():
+    """Try filter combinations; print total_count and a sample record for each."""
+    for label, v in [("no filter", {}), ("stateId=ME", {"stateId": "ME"}),
+                     ("stateId=ME, network=RAWS", {"stateId": "ME", "networkName": "RAWS"}),
+                     ("stateId=Maine", {"stateId": "Maine"}), ("stateId=23", {"stateId": "23"})]:
+        r = requests.post(GRAPHQL_URL, json={"query": PROBE_QUERY, "variables": v}, timeout=60)
+        body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        if not body or body.get("errors"):
+            print(f"{label}: HTTP {r.status_code} {str(body.get('errors') or r.text)[:300]}")
+            continue
+        res = body["data"]["stationMetaData"]
+        print(f"{label}: total_count={res['_metadata']['total_count']} sample={res['data'][:1]}")
 
 
 def _get_chunk(station, start, end):
@@ -138,12 +163,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("stations")
+    sub.add_parser("probe")
     sp = sub.add_parser("sample"); sp.add_argument("--station", required=True)
     pp = sub.add_parser("pull")
     pp.add_argument("--stations", required=True)
     pp.add_argument("--start", required=True); pp.add_argument("--end", required=True)
     a = ap.parse_args()
-    if a.cmd == "stations":
+    if a.cmd == "probe":
+        probe()
+    elif a.cmd == "stations":
         stations()
     elif a.cmd == "sample":
         sample(a.station)
